@@ -12,16 +12,17 @@ class UserInfo
 
 	def get_user_info
 		user_url = "https://news.ycombinator.com/user?id=" + @user_id
-		user_info = request(user_url)
 		regexps = {"created"=> %r{created:</td><td>(\d+) days ago},
 			       "karma"  => %r{karma:</td><td>(\d+)},
 				   "avg"    => %r{avg:</td><td>(.*?)</td>},
 				   "about"  => %r{about:</td><td>(.*?)</td>},
 		}
 
+		user_info = request(user_url)
 		created = user_info.scan(regexps["created"])[0][0]
-		@karma = user_info.scan(regexps["karma"][0][0])
-		@avg = user_info.scan(regexps["about"])[0][0]
+		@karma = user_info.scan(regexps["karma"])[0][0]
+		@avg = user_info.scan(regexps["avg"])[0][0]
+		@about = user_info.scan(regexps["about"])[0][0]
 
 		@create_date = Date.today - created.to_i
 	end
@@ -42,10 +43,10 @@ class UserInfo
 
 	private
 	def request(url)
-		request = URI(url)
-		result = request.read
-		request.close
-
+		result = ''
+		open(url) {|f|
+			result = f.read
+		}
 		result
 	end
 end
