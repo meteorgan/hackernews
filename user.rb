@@ -1,8 +1,11 @@
 #!/usr/bin/env ruby
 
 require "open-uri"
-require 'date'
+require "./utils"
 
+#
+# get the infomation of a ID in hacker news
+#
 class UserInfo
 	attr_reader :user_id, :create_date, :karma, :avg, :about
 
@@ -11,7 +14,14 @@ class UserInfo
 		get_user_info
 	end
 
-	def get_submissions	
+	def submissions
+		# notice: there is "more" in the webpage!
+	end
+
+	def comments
+	end
+
+	def submissions_ids
 		submissions_url = "https://news.ycombinator.com/submitted?id=" + @user_id
 		result = request(submissions_url)
 		
@@ -19,7 +29,7 @@ class UserInfo
 	    @submissions_ids = result.scan(regexp).flatten(1)
 	end
 
-	def get_comments
+	def comments_ids
 		comments_url = "https://news.ycombinator.com/threads?id=" + @user_id
 		result = request(comments_url)
 
@@ -29,26 +39,18 @@ class UserInfo
 	private
 	def get_user_info
 		user_url = "https://news.ycombinator.com/user?id=" + @user_id
-		regexps = {"created"=> %r{created:</td><td>(\d+) days ago},
+		regexps = {"created"=> %r{created:</td><td>(.*?) ago},
 			       "karma"  => %r{karma:</td><td>(\d+)},
 				   "avg"    => %r{avg:</td><td>(.*?)</td>},
 				   "about"  => %r{about:</td><td>(.*?)</td>},
 		}
 
 		user_info = request(user_url)
-		created = user_info.scan(regexps["created"])[0][0]
-		@karma = user_info.scan(regexps["karma"])[0][0]
-		@avg = user_info.scan(regexps["avg"])[0][0]
-		@about = user_info.scan(regexps["about"])[0][0]
+		created = user_info.match(regexps["created"])[1]
+		@karma = user_info.match(regexps["karma"])[1]
+		@avg = user_info.match(regexps["avg"])[1]
+		@about = user_info.match(regexps["about"])[1]
 
-		@create_date = (Date.today - created.to_i).to_s
-	end
-
-	def request(url)
-		result = ''
-		open(url) {|f|
-			result = f.read
-		}
-		result
+		@create_date = time_to_day(created)
 	end
 end
