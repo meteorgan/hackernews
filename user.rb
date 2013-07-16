@@ -21,12 +21,15 @@ class UserInfo
 	def comments
 	end
 
-	def submissions_ids
+	def submission_ids
 		submissions_url = "https://news.ycombinator.com/submitted?id=" + @user_id
-		result = request(submissions_url)
-		
-		regexp = %r{ago  \| <a href="item\?id=(\d+)}
-	    @submissions_ids = result.scan(regexp).flatten(1)
+	    @submission_ids  = []
+
+		while submissions_url
+			@submission_ids << get_submission_ids_from_page(submissions_url)
+			submissions_url = get_more(submissions_url)
+		end
+		@submissions
 	end
 
 	def comments_ids
@@ -51,6 +54,29 @@ class UserInfo
 		@avg = user_info.match(regexps["avg"])[1]
 		@about = user_info.match(regexps["about"])[1]
 
-		@create_date = time_to_day(created)
+		@create_date = time_to_date(created)
+	end
+
+	def get_submission_info_from_page(url)
+	end
+
+	def get_submission_ids_from_page(url)
+		result = request(url)
+		regexp = %r{ago  \| <a href="item\?id=(\d+)}
+
+		result.scan(regexp).flatten(1)
+	end
+
+	def get_more(url)
+		regexp = %r{<a href="/x\?fnid=(.*?)" rel="nofollow">More</a>}
+		content = request(url)
+		matches = content.match(regexp)
+		if matches
+			path = matches[1]
+			puts "more page: " + path
+			return "https://news.ycombinator.com/x?fnid=" + path
+		else
+			puts content
+		end
 	end
 end
