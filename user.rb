@@ -12,26 +12,48 @@ class UserInfo
     def initialize(user_id)
         @user_id = user_id
         get_user_info
+        @submissions
     end
 
-    def submissions
+    def get_submissions
         # notice: there is "more" in the webpage!
         submissions_url = "https://news.ycombinator.com/submitted?id=" + @user_id
-        puts get_submission_info_from_page(submissions_url)
-    end
+        @submissions = []
 
-    def comments
-    end
-
-    def submission_ids
-        submissions_url = "https://news.ycombinator.com/submitted?id=" + @user_id
-        @submission_ids  = []
-
+        number = 0
         while submissions_url
-            @submission_ids << get_submission_ids_from_page(submissions_url)
+            r = get_submission_info_from_page(submissions_url)
+            unless r
+                return false
+            end
+            @submissions.push(*r)
             submissions_url = get_more(submissions_url)
+            number += 1
+            puts number
         end
         @submissions
+    end
+
+    def get_comments
+    end
+
+    def get_submission_ids
+        submission_ids  = []
+        if @submissions
+            submission_ids = @submissions.collect {|submission| submission[2]}
+            return submission_ids
+        end
+
+        submissions_url = "https://news.ycombinator.com/submitted?id=" + @user_id
+        while submissions_url
+            r = get_submission_ids_from_page(submissions_url)
+            unless r
+                return false
+            end
+            submission_ids.push(*r)
+            submissions_url = get_more(submissions_url)
+        end
+        submission_ids
     end
 
     def comments_ids
@@ -51,6 +73,10 @@ class UserInfo
         }
 
         user_info = request(user_url)
+        unless user_info
+            print "url request error ", user_url
+            return false
+        end
         created = user_info.match(regexps["created"])[1]
         @karma = user_info.match(regexps["karma"])[1]
         @avg = user_info.match(regexps["avg"])[1]
@@ -60,14 +86,52 @@ class UserInfo
     end
 
     def get_submission_info_from_page(url)
-        result = request(url)
-        regexp = %r{<td class="title"><a href="(.*?)" rel="nofollow">(.*?)</a><span class="comhead"> (.*?) </span></td></tr><tr><td colspan=2></td><td class="subtext"><span id=score_(\d+)>(\d+) points</span> by <a href="user\?id=#{@user_id}">#{@user_id}</a> (.*?) ago  \| <a href="item\?id=(\d+)">(.*?)</a>}
+        content = request(url)
+        unless content
+            print "get submissions error ", url
+            return false
+        end
 
-        result.scan(regexp)
+        regexp = %r{<td class="title"><a href="(.*?)">(.*?)</a>(.*?)</td></tr><tr><td colspan=2></td><td class="subtext"><span id=score_(\d+)>(\d+) points?</span> by <a href="user\?id=#{@user_id}">#{@user_id}</a> (.*?) ago  \| <a href="item\?id=(\d+)">(.*?)</a>}
+
+        info = content.scan(regexp)
+        result = info.collect {|submission|
+            url, title, _, item_id, score, dt, _, comments = submission
+            unless comments
+                puts @user_id, url
+                next
+            end
+
+            if url =~ / rel/
+                url  = $`.chop
+            end
+            unless url.start_with?("http")
+                url = URI.join("https://news.ycombinator.com/", url).to_s
+            end
+
+            item_id = item_id.to_i
+            score = score.to_i
+            date = time_to_date(dt)
+
+            comments_number = 0
+            if comments == "comments"
+                comments_number = -1
+            elsif comments =~ /comments/
+                comments_number = comments.split()[0].to_i
+            end
+
+            arr = [url, title, item_id, score, date, comments_number]
+            puts arr.to_s
+            arr
+        }
     end
 
     def get_submission_ids_from_page(url)
         result = request(url)
+        unless result
+            print "get submission error ", url
+            return false
+        end
         regexp = %r{ago  \| <a href="item\?id=(\d+)}
 
         result.scan(regexp).flatten(1)
@@ -76,6 +140,10 @@ class UserInfo
     def get_more(url)
         regexp = %r{<a href="/x\?fnid=(.*?)" rel="nofollow">More</a>}
         content = request(url)
+        unless content
+            print "get more page error ", url
+            return false
+        end
         matches = content.match(regexp)
         if matches
             path = matches[1]
