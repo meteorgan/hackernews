@@ -16,6 +16,8 @@ class UserInfo
 
 	def submissions
 		# notice: there is "more" in the webpage!
+		submissions_url = "https://news.ycombinator.com/submitted?id=" + @user_id
+		puts get_submission_info_from_page(submissions_url)
 	end
 
 	def comments
@@ -58,6 +60,10 @@ class UserInfo
 	end
 
 	def get_submission_info_from_page(url)
+		result = request(url)
+		regexp = %r{<td class="title"><a href="(.*?)" rel="nofollow">(.*?)</a><span class="comhead"> (.*?) </span></td></tr><tr><td colspan=2></td><td class="subtext"><span id=score_(\d+)>(\d+) points</span> by <a href="user\?id=#{@user_id}">#{@user_id}</a> (.*?) ago  \| <a href="item\?id=(\d+)">(.*?)</a>}
+
+		result.scan(regexp)
 	end
 
 	def get_submission_ids_from_page(url)
