@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require "date"
+require "open-uri"
 
 def request(url)
     result = ''
@@ -9,7 +10,7 @@ def request(url)
         open(url) {|f|
             result = f.read
         }
-    rescue HTTPerror => e
+    rescue OpenURI::HTTPError => e
         if retry_number > 0
             sleep 5
             retry_number -= 1
