@@ -2,6 +2,7 @@
 
 require "open-uri"
 require "./utils"
+require "./comments_parser"
 
 #
 # get the infomation of a ID in hacker news
@@ -13,6 +14,7 @@ class UserInfo
         @user_id = user_id
         get_user_info
         @submissions
+        @comments
     end
 
     def get_submissions
@@ -34,9 +36,6 @@ class UserInfo
         @submissions
     end
 
-    def get_comments
-    end
-
     def get_submission_ids
         submission_ids  = []
         if @submissions
@@ -56,20 +55,36 @@ class UserInfo
         submission_ids
     end
 
-    def comments_ids
-        comments_url = "https://news.ycombinator.com/threads?id=" + @user_id
-        result = request(comments_url)
+    def get_comments
+        comments_url = "https://news.ycombinator.com/threads?" + @user_id
+        @comments = comments_parser(comments_url)
+    end
 
-        @comments_ids = result.scan(%r{user\?id=#{@user_id}.*?item\?id=(\d+)}).flatten(1)
+    def comments_ids
+        if @comments
+            return @comments.keys
+        end
+        comments_url = "https://news.ycombinator.com/threads?id=" + @user_id
+        comments_ids = []
+        while comments_url
+            r = request(comments_url)
+            unless r
+                return false
+            end
+            ids = r.scan(%r{user\?id=#{@user_id}.*?item\?id=(\d+)}).flatten(1)
+            comments_ids.concat(ids)
+            comments_url = get_more(comments_url)
+        end
+        comments_ids
     end
 
     private
     def get_user_info
         user_url = "https://news.ycombinator.com/user?id=" + @user_id
-        regexps = {"created"=> %r{created:</td><td>(.*?) ago},
-                   "karma"  => %r{karma:</td><td>(\d+)},
-                   "avg"    => %r{avg:</td><td>(.*?)</td>},
-                   "about"  => %r{about:</td><td>(.*?)</td>},
+        regexps = {"created"=> %r{created:</td><td>(.*?) ago}m,
+                   "karma"  => %r{karma:</td><td>(\d+)}m,
+                   "avg"    => %r{avg:</td><td>(.*?)</td>}m,
+                   "about"  => %r{about:</td><td>(.*?)</td>}m,
         }
 
         user_info = request(user_url)
